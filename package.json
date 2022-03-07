@@ -8,15 +8,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/atom/keyboard-layout.git"
+    "url": "https://github.com/inkdropapp/keyboard-layout.git"
   },
   "bugs": {
-    "url": "https://github.com/atom/keyboard-layout/issues"
+    "url": "https://github.com/inkdropapp/keyboard-layout/issues"
   },
   "licenses": [
     {
       "type": "MIT",
-      "url": "http://github.com/atom/keyboard-layout/raw/master/LICENSE.md"
+      "url": "http://github.com/inkdropapp/keyboard-layout/raw/master/LICENSE.md"
     }
   ],
   "dependencies": {
