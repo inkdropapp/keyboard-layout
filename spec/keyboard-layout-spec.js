@@ -26,6 +26,7 @@ describe('Keyboard Layout', () => {
             })
             break
 
+          case 'com.apple.keylayout.ABC':
           case 'com.apple.keylayout.US':
             expect(KeyboardLayout.getCurrentKeymap()['KeyS']).toEqual({
               unmodified: 's',
