@@ -1,6 +1,6 @@
 {
   "name": "inkdrop-keyboard-layout",
-  "version": "2.0.19",
+  "version": "2.0.20",
   "description": "Read and observe the current keyboard layout on OS X.",
   "main": "./lib/keyboard-layout",
   "scripts": {
