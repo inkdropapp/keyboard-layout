@@ -21,7 +21,7 @@
   ],
   "dependencies": {
     "event-kit": "^2.5.3",
-    "nan": "^2.20.0"
+    "nan": "^2.22.2"
   },
   "devDependencies": {
     "jasmine-focused": "^1.0.4"
