@@ -61,11 +61,11 @@ describe('Keyboard Layout', () => {
 
     describe('.observeCurrentKeyboardLayout(callback)', () => {
       it('calls back immediately with the current keyboard layout', () => {
-        const callback = jasmine.createSpy('observeCurrentKeyboardLayout')
+        const callback = jest.fn()
         const disposable = KeyboardLayout.observeCurrentKeyboardLayout(callback)
         disposable.dispose()
-        expect(callback.callCount).toBe(1)
-        const layout = callback.argsForCall[0][0]
+        expect(callback.mock.calls.length).toBe(1)
+        const layout = callback.mock.calls[0][0]
         expect(typeof layout).toBe('string')
         expect(layout.length).toBeGreaterThan(0)
       })
