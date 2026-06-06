@@ -6,27 +6,49 @@ env:
   CI: true
 
 jobs:
-  Test:
+  test:
+    name: Test & prebuild (${{ matrix.os }})
     strategy:
+      fail-fast: false
       matrix:
         os:
           - ubuntu-latest
           - ubuntu-24.04-arm
           - macos-latest
-          - windows-latest
+          - windows-2025-vs2026
           - windows-11-arm
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "24"
       - name: Install X11 libraries (Linux only)
-        if: matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-24.04-arm'
-        run: sudo apt-get update && sudo apt-get install -y libx11-dev libxkbfile-dev
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev libxkbfile-dev xvfb
+      # node-gyp-build's install hook compiles the addon from source here (no
+      # prebuild is committed), so a green install proves the Node-API port
+      # builds on this platform.
       - name: Install dependencies
         run: npm i
+      # Linux needs a virtual X display (the addon calls XOpenDisplay); other
+      # platforms run the tests directly.
+      - name: Run tests (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum npm test
       - name: Run tests
-        uses: coactions/setup-xvfb@v1
+        if: runner.os != 'Linux'
+        run: npm test
+      # ABI-stable Node-API prebuild: one binary works on every Node/Electron
+      # (including Electron 42+) that supports NAPI_VERSION 8.
+      - name: Build Node-API prebuild
+        run: npm run prebuild
+      - name: Build darwin-x64 prebuild (cross-compile)
+        if: matrix.os == 'macos-latest'
+        run: npm run prebuild -- --arch x64
+      - name: Upload prebuilds
+        uses: actions/upload-artifact@v7
         with:
-          run: npm test
+          name: prebuilds-${{ matrix.os }}
+          path: prebuilds/
+          if-no-files-found: error

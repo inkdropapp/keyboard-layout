@@ -12,8 +12,6 @@
 #include <cwctype>
 #include <windows.h>
 
-using namespace v8;
-
 std::string ToUTF8(const std::wstring& string) {
   if (string.length() < 1) {
     return std::string();
@@ -40,28 +38,24 @@ HKL GetForegroundWindowHKL() {
   return GetKeyboardLayout(dwThreadId);
 }
 
-KeyboardLayoutManager::KeyboardLayoutManager(v8::Isolate *isolate, Nan::Callback *callback) : isolate_(isolate), callback(callback) {}
+KeyboardLayoutManager::KeyboardLayoutManager(const Napi::CallbackInfo& info)
+  : Napi::ObjectWrap<KeyboardLayoutManager>(info) {}
 
-KeyboardLayoutManager::~KeyboardLayoutManager() {
-  delete callback;
-};
+KeyboardLayoutManager::~KeyboardLayoutManager() {}
 
-void KeyboardLayoutManager::HandleKeyboardLayoutChanged() {
-}
-
-NAN_METHOD(KeyboardLayoutManager::GetCurrentKeyboardLayout) {
-  Nan::HandleScope scope;
+Napi::Value KeyboardLayoutManager::GetCurrentKeyboardLayout(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
 
   ActivateKeyboardLayout(GetForegroundWindowHKL(), 0);
   char layoutName[KL_NAMELENGTH];
   if (::GetKeyboardLayoutName(layoutName))
-    info.GetReturnValue().Set(Nan::New(layoutName).ToLocalChecked());
+    return Napi::String::New(env, layoutName);
   else
-    info.GetReturnValue().Set(Nan::Undefined());
+    return env.Undefined();
 }
 
-NAN_METHOD(KeyboardLayoutManager::GetCurrentKeyboardLanguage) {
-  Nan::HandleScope scope;
+Napi::Value KeyboardLayoutManager::GetCurrentKeyboardLanguage(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
 
   HKL layout = GetForegroundWindowHKL();
 
@@ -71,17 +65,17 @@ NAN_METHOD(KeyboardLayoutManager::GetCurrentKeyboardLanguage) {
   wstr.assign(buf);
 
   std::string str = ToUTF8(wstr);
-  info.GetReturnValue().Set(Nan::New<String>(str.data(), str.size()).ToLocalChecked());
+  return Napi::String::New(env, str);
 }
 
-NAN_METHOD(KeyboardLayoutManager::GetInstalledKeyboardLanguages) {
-  Nan::HandleScope scope;
+Napi::Value KeyboardLayoutManager::GetInstalledKeyboardLanguages(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
 
   int layoutCount = GetKeyboardLayoutList(0, NULL);
   HKL* layouts = new HKL[layoutCount];
   GetKeyboardLayoutList(layoutCount, layouts);
 
-  Local<Array> result = Nan::New<Array>(layoutCount);
+  Napi::Array result = Napi::Array::New(env, layoutCount);
   wchar_t buf[LOCALE_NAME_MAX_LENGTH];
 
   for (int i=0; i < layoutCount; i++) {
@@ -90,11 +84,11 @@ NAN_METHOD(KeyboardLayoutManager::GetInstalledKeyboardLanguages) {
     wstr.assign(buf);
 
     std::string str = ToUTF8(wstr);
-    Nan::Set(result, i, Nan::New<String>(str.data(), str.size()).ToLocalChecked());
+    result.Set(static_cast<uint32_t>(i), Napi::String::New(env, str));
   }
 
   delete[] layouts;
-  info.GetReturnValue().Set(result);
+  return result;
 }
 
 struct KeycodeMapEntry {
@@ -107,8 +101,8 @@ struct KeycodeMapEntry {
 
 #include "keycode_converter_data.inc"
 
-Local<Value> CharacterForNativeCode(HKL keyboardLayout, UINT keyCode, UINT scanCode,
-                                     BYTE *keyboardState, bool shift, bool altGraph) {
+Napi::Value CharacterForNativeCode(Napi::Env env, HKL keyboardLayout, UINT keyCode, UINT scanCode,
+                                   BYTE *keyboardState, bool shift, bool altGraph) {
   memset(keyboardState, 0, 256);
   if (shift) {
     keyboardState[VK_SHIFT] = 0x80;
@@ -139,23 +133,20 @@ Local<Value> CharacterForNativeCode(HKL keyboardLayout, UINT keyCode, UINT scanC
     ToUnicodeEx(spaceKeyCode, SPACE_SCAN_CODE, keyboardState, characters, 5, 0, keyboardLayout);
 
     // Don't translate dead keys
-    return Nan::Null();
+    return env.Null();
   } else if (count > 0 && !std::iswcntrl(characters[0])) {
-    return Nan::New<String>(reinterpret_cast<const uint16_t *>(characters), count).ToLocalChecked();
+    return Napi::String::New(env, reinterpret_cast<const char16_t *>(characters), static_cast<size_t>(count));
   } else {
-    return Nan::Null();
+    return env.Null();
   }
 }
 
-NAN_METHOD(KeyboardLayoutManager::GetCurrentKeymap) {
+Napi::Value KeyboardLayoutManager::GetCurrentKeymap(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
   BYTE keyboardState[256];
   HKL keyboardLayout = GetForegroundWindowHKL();
 
-  Local<Object> result = Nan::New<Object>();
-  Local<String> unmodifiedKey = Nan::New("unmodified").ToLocalChecked();
-  Local<String> withShiftKey = Nan::New("withShift").ToLocalChecked();
-  Local<String> withAltGraphKey = Nan::New("withAltGraph").ToLocalChecked();
-  Local<String> withAltGraphShiftKey = Nan::New("withAltGraphShift").ToLocalChecked();
+  Napi::Object result = Napi::Object::New(env);
 
   size_t keyCodeMapSize = sizeof(keyCodeMap) / sizeof(keyCodeMap[0]);
   for (size_t i = 0; i < keyCodeMapSize; i++) {
@@ -172,24 +163,22 @@ NAN_METHOD(KeyboardLayoutManager::GetCurrentKeymap) {
       // characters.
       if ((MapVirtualKeyEx(keyCode, MAPVK_VK_TO_CHAR, keyboardLayout) >> (sizeof(UINT) * 8 - 1))) continue;
 
-      Local<String> dom3CodeKey = Nan::New(dom3Code).ToLocalChecked();
-      Local<Value> unmodified = CharacterForNativeCode(keyboardLayout, keyCode, scanCode, keyboardState, false, false);
-      Local<Value> withShift = CharacterForNativeCode(keyboardLayout, keyCode, scanCode, keyboardState, true, false);
-      Local<Value> withAltGraph = CharacterForNativeCode(keyboardLayout, keyCode, scanCode, keyboardState, false, true);
-      Local<Value> withAltGraphShift = CharacterForNativeCode(keyboardLayout, keyCode, scanCode, keyboardState, true, true);
+      Napi::Value unmodified = CharacterForNativeCode(env, keyboardLayout, keyCode, scanCode, keyboardState, false, false);
+      Napi::Value withShift = CharacterForNativeCode(env, keyboardLayout, keyCode, scanCode, keyboardState, true, false);
+      Napi::Value withAltGraph = CharacterForNativeCode(env, keyboardLayout, keyCode, scanCode, keyboardState, false, true);
+      Napi::Value withAltGraphShift = CharacterForNativeCode(env, keyboardLayout, keyCode, scanCode, keyboardState, true, true);
 
-      if (unmodified->IsString() || withShift->IsString() || withAltGraph->IsString() || withAltGraphShift->IsString()) {
-        Local<Object> entry = Nan::New<Object>();
-        Nan::Set(entry, unmodifiedKey, unmodified);
-        Nan::Set(entry, withShiftKey, withShift);
-        Nan::Set(entry, withAltGraphKey, withAltGraph);
-        Nan::Set(entry, withAltGraphShiftKey, withAltGraphShift);
+      if (unmodified.IsString() || withShift.IsString() || withAltGraph.IsString() || withAltGraphShift.IsString()) {
+        Napi::Object entry = Napi::Object::New(env);
+        entry.Set("unmodified", unmodified);
+        entry.Set("withShift", withShift);
+        entry.Set("withAltGraph", withAltGraph);
+        entry.Set("withAltGraphShift", withAltGraphShift);
 
-        Nan::Set(result, dom3CodeKey, entry);
+        result.Set(dom3Code, entry);
       }
     }
   }
 
-  info.GetReturnValue().Set(result);
-
+  return result;
 }
