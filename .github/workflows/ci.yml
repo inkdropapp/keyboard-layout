@@ -6,8 +6,10 @@ env:
   CI: true
 
 jobs:
-  Test:
+  test:
+    name: Test & prebuild (${{ matrix.os }})
     strategy:
+      fail-fast: false
       matrix:
         os:
           - ubuntu-latest
@@ -22,11 +24,29 @@ jobs:
         with:
           node-version: "22"
       - name: Install X11 libraries (Linux only)
-        if: matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-24.04-arm'
+        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libx11-dev libxkbfile-dev
+      # The install hook (pkg-prebuilds-verify || node-gyp rebuild) compiles the
+      # addon from source here, so a green install already proves the Node-API
+      # port builds on this platform.
       - name: Install dependencies
         run: npm i
       - name: Run tests
         uses: coactions/setup-xvfb@v1
         with:
           run: npm test
+      # ABI-stable Node-API prebuild: one binary works on every Node/Electron
+      # (including Electron 42+) that supports NAPI_VERSION 8.
+      - name: Build Node-API prebuild
+        run: npm run prebuild
+      - name: Build darwin-x64 prebuild (cross-compile)
+        if: matrix.os == 'macos-latest'
+        run: |
+          node-gyp rebuild --arch=x64
+          npx pkg-prebuilds-copy --baseDir build/Release --source keyboard-layout-manager.node --name keyboard-layout-manager --strip --napi_version 8 --arch x64
+      - name: Upload prebuilds
+        uses: actions/upload-artifact@v4
+        with:
+          name: prebuilds-${{ matrix.os }}
+          path: prebuilds/
+          if-no-files-found: error

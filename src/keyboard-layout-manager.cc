@@ -1,35 +1,19 @@
 #include "keyboard-layout-manager.h"
 
-using namespace v8;
+Napi::Object KeyboardLayoutManager::Init(Napi::Env env, Napi::Object exports) {
+  Napi::Function func = DefineClass(env, "KeyboardLayoutManager", {
+    InstanceMethod("getCurrentKeyboardLayout", &KeyboardLayoutManager::GetCurrentKeyboardLayout),
+    InstanceMethod("getCurrentKeyboardLanguage", &KeyboardLayoutManager::GetCurrentKeyboardLanguage),
+    InstanceMethod("getInstalledKeyboardLanguages", &KeyboardLayoutManager::GetInstalledKeyboardLanguages),
+    InstanceMethod("getCurrentKeymap", &KeyboardLayoutManager::GetCurrentKeymap),
+  });
 
-NAN_MODULE_INIT(init) {
-  Nan::HandleScope scope;
-  Local<FunctionTemplate> newTemplate = Nan::New<FunctionTemplate>(KeyboardLayoutManager::New);
-  newTemplate->SetClassName(Nan::New<String>("KeyboardLayoutManager").ToLocalChecked());
-  newTemplate->InstanceTemplate()->SetInternalFieldCount(1);
-
-  Local<ObjectTemplate> proto = newTemplate->PrototypeTemplate();
-
-  Nan::SetMethod(proto, "getCurrentKeyboardLayout", KeyboardLayoutManager::GetCurrentKeyboardLayout);
-  Nan::SetMethod(proto, "getCurrentKeyboardLanguage", KeyboardLayoutManager::GetCurrentKeyboardLanguage);
-  Nan::SetMethod(proto, "getInstalledKeyboardLanguages", KeyboardLayoutManager::GetInstalledKeyboardLanguages);
-  Nan::SetMethod(proto, "getCurrentKeymap", KeyboardLayoutManager::GetCurrentKeymap);
-
-  Nan::Set(target, Nan::New("KeyboardLayoutManager").ToLocalChecked(), Nan::GetFunction(newTemplate).ToLocalChecked());
+  exports.Set("KeyboardLayoutManager", func);
+  return exports;
 }
 
-#if NODE_MAJOR_VERSION >= 10
-NAN_MODULE_WORKER_ENABLED(keyboard_layout_manager, init)
-#else
-NODE_MODULE(keyboard_layout_manager, init)
-#endif
-
-NAN_METHOD(KeyboardLayoutManager::New) {
-  Nan::HandleScope scope;
-  Local<Function> callbackHandle = info[0].As<Function>();
-  Nan::Callback *callback = new Nan::Callback(callbackHandle);
-
-  KeyboardLayoutManager *manager = new KeyboardLayoutManager(info.GetIsolate(), callback);
-  manager->Wrap(info.This());
-  return;
+static Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
+  return KeyboardLayoutManager::Init(env, exports);
 }
+
+NODE_API_MODULE(keyboard_layout_manager, InitAll)
