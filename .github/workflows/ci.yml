@@ -42,7 +42,7 @@ jobs:
       - name: Build darwin-x64 prebuild (cross-compile)
         if: matrix.os == 'macos-latest'
         run: |
-          node-gyp rebuild --arch=x64
+          npx node-gyp rebuild --arch=x64
           npx pkg-prebuilds-copy --baseDir build/Release --source keyboard-layout-manager.node --name keyboard-layout-manager --strip --napi_version 8 --arch x64
       - name: Upload prebuilds
         uses: actions/upload-artifact@v4
