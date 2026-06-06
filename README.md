@@ -93,3 +93,5 @@ Prebuilt binaries are built in CI and shipped **inside the npm package** — the
    ```
 
 Prebuilds are produced with [prebuildify](https://github.com/prebuild/prebuildify) and loaded with [node-gyp-build](https://github.com/prebuild/node-gyp-build).
+
+The `prebuild` script passes `--name node.napi --tag-armv` so the binaries are named `node.napi.node` / `node.napi.armv8.node` rather than prebuildify's default `<package>.node`. Both names load fine via `node-gyp-build`, but this convention is also the one [`@electron/rebuild`](https://github.com/electron/rebuild) recognizes — so when a consumer (e.g. an Electron app rebuilding other native modules) runs it, this addon is **skipped** instead of needlessly recompiled from source.

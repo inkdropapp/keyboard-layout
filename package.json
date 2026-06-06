@@ -5,7 +5,7 @@
   "main": "./lib/keyboard-layout",
   "scripts": {
     "install": "node-gyp-build",
-    "prebuild": "prebuildify --napi --strip",
+    "prebuild": "prebuildify --napi --strip --name node.napi --tag-armv",
     "rebuild": "node-gyp rebuild",
     "fetch-prebuilds": "bash script/fetch-prebuilds.sh",
     "test": "jest"
