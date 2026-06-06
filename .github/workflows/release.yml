@@ -2,8 +2,8 @@ name: Release
 
 # On a version tag, build a Node-API prebuild for every platform/arch and attach
 # them to a GitHub Release. npm publishing is done locally (no CI token needed):
-#   npm version 2.1.0 && git push --follow-tags   # CI builds + attaches binaries
-#   npm run fetch-prebuilds                        # download them into prebuilds/
+#   npm version 3.0.1 && git push --follow-tags   # CI builds + attaches binaries
+#   pnpm fetch-prebuilds                           # download them into prebuilds/
 #   npm publish                                    # ships the tarball (prompts for 2FA)
 on:
   push:
@@ -30,30 +30,34 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
+          cache: pnpm
       - name: Install X11 libraries (Linux only)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libx11-dev libxkbfile-dev xvfb
       # --ignore-scripts skips the install hook's redundant source build; the
       # prebuild script does the real build + stage.
       - name: Install dependencies
-        run: npm i --ignore-scripts
+        run: pnpm install --ignore-scripts
       - name: Build Node-API prebuild (host arch)
-        run: npm run prebuild
+        run: pnpm run prebuild
       # Test the freshly built host-arch binary BEFORE cross-compiling, because
       # the cross-build below overwrites build/Release with the x64 binary.
       # Linux needs a virtual X display (the addon calls XOpenDisplay).
       - name: Run tests (Linux)
         if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum npm test
+        run: xvfb-run --auto-servernum pnpm test
       - name: Run tests
         if: runner.os != 'Linux'
-        run: npm test
+        run: pnpm test
       - name: Build darwin-x64 prebuild (cross-compile)
         if: matrix.os == 'macos-latest'
-        run: npm run prebuild -- --arch x64
+        run: pnpm run prebuild --arch x64
       # Tar the prebuilds so download-artifact can merge every platform back into
       # one prebuilds/ tree without upload-artifact's path-flattening.
       - name: Package prebuilds

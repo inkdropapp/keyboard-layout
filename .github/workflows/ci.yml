@@ -20,9 +20,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
+          cache: pnpm
       - name: Install X11 libraries (Linux only)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libx11-dev libxkbfile-dev xvfb
@@ -30,22 +34,22 @@ jobs:
       # prebuild is committed), so a green install proves the Node-API port
       # builds on this platform.
       - name: Install dependencies
-        run: npm i
+        run: pnpm install
       # Linux needs a virtual X display (the addon calls XOpenDisplay); other
       # platforms run the tests directly.
       - name: Run tests (Linux)
         if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum npm test
+        run: xvfb-run --auto-servernum pnpm test
       - name: Run tests
         if: runner.os != 'Linux'
-        run: npm test
+        run: pnpm test
       # ABI-stable Node-API prebuild: one binary works on every Node/Electron
       # (including Electron 42+) that supports NAPI_VERSION 8.
       - name: Build Node-API prebuild
-        run: npm run prebuild
+        run: pnpm run prebuild
       - name: Build darwin-x64 prebuild (cross-compile)
         if: matrix.os == 'macos-latest'
-        run: npm run prebuild -- --arch x64
+        run: pnpm run prebuild --arch x64
       - name: Upload prebuilds
         uses: actions/upload-artifact@v7
         with:
