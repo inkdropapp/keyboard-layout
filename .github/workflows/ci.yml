@@ -25,16 +25,20 @@ jobs:
           node-version: "22"
       - name: Install X11 libraries (Linux only)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libx11-dev libxkbfile-dev
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev libxkbfile-dev xvfb
       # The install hook (pkg-prebuilds-verify || node-gyp rebuild) compiles the
       # addon from source here, so a green install already proves the Node-API
       # port builds on this platform.
       - name: Install dependencies
         run: npm i
+      # Linux needs a virtual X display (the addon calls XOpenDisplay); other
+      # platforms run the tests directly.
+      - name: Run tests (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum npm test
       - name: Run tests
-        uses: coactions/setup-xvfb@v1
-        with:
-          run: npm test
+        if: runner.os != 'Linux'
+        run: npm test
       # ABI-stable Node-API prebuild: one binary works on every Node/Electron
       # (including Electron 42+) that supports NAPI_VERSION 8.
       - name: Build Node-API prebuild
