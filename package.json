@@ -4,9 +4,10 @@
   "description": "Read and observe the current keyboard layout on OS X.",
   "main": "./lib/keyboard-layout",
   "scripts": {
-    "install": "pkg-prebuilds-verify binding-options.js || node-gyp rebuild",
-    "prebuild": "node-gyp rebuild && pkg-prebuilds-copy --baseDir build/Release --source keyboard-layout-manager.node --name keyboard-layout-manager --strip --napi_version 8",
+    "install": "node-gyp-build",
+    "prebuild": "prebuildify --napi --strip",
     "rebuild": "node-gyp rebuild",
+    "fetch-prebuilds": "bash script/fetch-prebuilds.sh",
     "test": "jest"
   },
   "repository": {
@@ -25,10 +26,11 @@
   "dependencies": {
     "event-kit": "^2.5.3",
     "node-addon-api": "^8.8.0",
-    "pkg-prebuilds": "^1.0.0"
+    "node-gyp-build": "^4.8.4"
   },
   "devDependencies": {
     "jest": "^30.4.2",
-    "node-gyp": "^12.4.0"
+    "node-gyp": "^12.4.0",
+    "prebuildify": "^6.0.1"
   }
 }
