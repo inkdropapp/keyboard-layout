@@ -1,0 +1,91 @@
+name: Release
+
+# On a version tag, build a Node-API prebuild for every platform/arch and attach
+# them to a GitHub Release. npm publishing is done locally (no CI token needed):
+#   npm version 2.1.0 && git push --follow-tags   # CI builds + attaches binaries
+#   npm run fetch-prebuilds                        # download them into prebuilds/
+#   npm publish                                    # ships the tarball (prompts for 2FA)
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  CI: true
+
+jobs:
+  # Build one ABI-stable Node-API prebuild per platform/arch. macOS additionally
+  # cross-compiles darwin-x64, so 5 runners produce 6 binaries.
+  prebuild:
+    name: Prebuild (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, name: linux-x64 }
+          - { os: ubuntu-24.04-arm, name: linux-arm64 }
+          - { os: macos-latest, name: darwin } # builds darwin-arm64 + darwin-x64
+          - { os: windows-2025-vs2026, name: win32-x64 }
+          - { os: windows-11-arm, name: win32-arm64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - name: Install X11 libraries (Linux only)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev libxkbfile-dev xvfb
+      # --ignore-scripts skips the install hook's redundant source build; the
+      # prebuild script does the real build + stage.
+      - name: Install dependencies
+        run: npm i --ignore-scripts
+      - name: Build Node-API prebuild (host arch)
+        run: npm run prebuild
+      # Test the freshly built host-arch binary BEFORE cross-compiling, because
+      # the cross-build below overwrites build/Release with the x64 binary.
+      # Linux needs a virtual X display (the addon calls XOpenDisplay).
+      - name: Run tests (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum npm test
+      - name: Run tests
+        if: runner.os != 'Linux'
+        run: npm test
+      - name: Build darwin-x64 prebuild (cross-compile)
+        if: matrix.os == 'macos-latest'
+        run: npm run prebuild -- --arch x64
+      # Tar the prebuilds so download-artifact can merge every platform back into
+      # one prebuilds/ tree without upload-artifact's path-flattening.
+      - name: Package prebuilds
+        shell: bash
+        run: tar -czf "prebuilds-${{ matrix.name }}.tgz" prebuilds
+      - uses: actions/upload-artifact@v7
+        with:
+          name: prebuilds-${{ matrix.name }}
+          path: prebuilds-${{ matrix.name }}.tgz
+          if-no-files-found: error
+
+  # Collect every platform's prebuild and attach them to the GitHub Release for
+  # the tag. No npm token: publishing is done locally (see script/fetch-prebuilds.sh).
+  release:
+    needs: prebuild
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release and upload assets
+    steps:
+      - name: Download prebuild artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: prebuilds-*
+          path: artifacts
+          merge-multiple: true
+      - name: Attach prebuilds to the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ls -la artifacts
+          gh release create "$GITHUB_REF_NAME" artifacts/*.tgz \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+          || gh release upload "$GITHUB_REF_NAME" artifacts/*.tgz --clobber
